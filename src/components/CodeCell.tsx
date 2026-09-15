@@ -70,15 +70,31 @@ export function findInputPrompts(code: string) {
   return prompts;
 }
 
+function leadingPackageInstallCommands(code: string) {
+  const commands: string[] = [];
+  for (const line of code.split(/\r?\n/)) {
+    const command = line.trimStart();
+    if (!command || command.startsWith("#")) continue;
+    if (/^[%!]pip\s+install(?:\s|$)/.test(command)) {
+      commands.push(command.trim());
+      continue;
+    }
+    break;
+  }
+  return commands;
+}
+
 export function CodeCell({ id, slideId, initialCode, theme }: Props) {
   const [code, setCode] = useState(initialCode.trim());
   const [inputs, setInputs] = useState<string[]>([]);
   const [awaitingInput, setAwaitingInput] = useState(false);
   const [running, setRunning] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const confirmedInstalls = useRef(new Set<string>());
   const runRevision = useRef(0);
   const output = useAppStore((s) => s.outputs[id]);
   const folder = useAppStore((s) => s.folder);
+  const settingsFolder = useAppStore((s) => s.settingsFolder);
   const outputRevision = useAppStore((s) => s.outputRevision);
   const slideResetRevision = useAppStore((s) => s.slideResetRevisions[slideId] ?? 0);
   const setOutput = useAppStore((s) => s.setOutput);
@@ -93,12 +109,19 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
   useEffect(() => { if (awaitingInput) firstInputRef.current?.focus(); }, [awaitingInput]);
   useEffect(() => { runRevision.current += 1; setRunning(false); setAwaitingInput(false); }, [outputRevision, slideResetRevision]);
   const execute = async () => {
+    const installCommands = leadingPackageInstallCommands(code);
+    const confirmationKey = installCommands.join("\n");
+    if (installCommands.length && !confirmedInstalls.current.has(confirmationKey)) {
+      const confirmed = window.confirm(`Install third-party Python packages?\n\n${confirmationKey}\n\nOnly continue if you trust this presentation.`);
+      if (!confirmed) return;
+      confirmedInstalls.current.add(confirmationKey);
+    }
     const outputRevision = useAppStore.getState().outputRevision;
     const slideResetRevision = useAppStore.getState().slideResetRevisions[slideId] ?? 0;
     const currentRun = ++runRevision.current;
     setAwaitingInput(false); setRunning(true); addEvent({ type: "run-cell", cell: id });
     try {
-      const result = await pythonKernel.run(id, code, inputs, folder);
+      const result = await pythonKernel.run(id, code, inputs, folder, settingsFolder);
       const current = useAppStore.getState();
       if (current.outputRevision === outputRevision && (current.slideResetRevisions[slideId] ?? 0) === slideResetRevision) setOutput(result);
     }

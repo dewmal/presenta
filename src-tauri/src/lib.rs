@@ -106,16 +106,44 @@ static NATIVE_EMBEDS_VISIBLE: AtomicBool = AtomicBool::new(true);
 
 struct NativePythonKernel {
     folder: PathBuf,
+    environment: PathBuf,
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
 }
 
 const PYTHON_KERNEL_SCRIPT: &str = r#"
-import ast, base64, builtins, contextlib, io, json, sys, traceback
+import ast, base64, builtins, contextlib, io, json, os, shlex, subprocess, sys, traceback
 
 STATE = {"__name__": "__presenta__"}
 PROTOCOL_PRINT = print
+
+def prepare_source(source):
+    code = []
+    output = []
+    accepting_magics = True
+    for line in source.splitlines(keepends=True):
+        command = line.lstrip()
+        is_pip_magic = command.startswith(("%pip ", "!pip "))
+        if accepting_magics and is_pip_magic:
+            arguments = shlex.split(command[5:].strip())
+            if not arguments or arguments[0] != "install":
+                raise ValueError("Only %pip install (or !pip install) is supported.")
+            if len(arguments) == 1:
+                raise ValueError("Add at least one package name after pip install.")
+            result = subprocess.run(
+                [os.environ["PRESENTA_UV"], "pip", "install", "--python", sys.executable, *arguments[1:]],
+                cwd=os.getcwd(), capture_output=True, text=True
+            )
+            output.append(result.stdout)
+            output.append(result.stderr)
+            if result.returncode:
+                raise RuntimeError("Package installation failed:\n" + "".join(output).strip())
+        else:
+            code.append(line)
+            if command.strip() and not command.startswith('#'):
+                accepting_magics = False
+    return "".join(code), "".join(output)
 
 def run_cell(source, supplied_inputs):
     stdout = io.StringIO()
@@ -132,6 +160,7 @@ def run_cell(source, supplied_inputs):
         return value
 
     try:
+        source, install_output = prepare_source(source)
         tree = ast.parse(source, mode="exec")
         last = None
         builtins.input = cell_input
@@ -145,7 +174,7 @@ def run_cell(source, supplied_inputs):
             else:
                 exec(compile(tree, "<presenta-cell>", "exec"), STATE, STATE)
 
-        text = stdout.getvalue() + stderr.getvalue()
+        text = install_output + stdout.getvalue() + stderr.getvalue()
         if "matplotlib.pyplot" in sys.modules:
             import matplotlib.pyplot as plt
             if plt.get_fignums():
@@ -196,19 +225,54 @@ fn uv_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-fn start_python_kernel(folder: PathBuf) -> Result<NativePythonKernel, String> {
+fn virtualenv_python(environment: &Path) -> PathBuf {
+    if cfg!(windows) {
+        environment.join("Scripts").join("python.exe")
+    } else {
+        environment.join("bin").join("python")
+    }
+}
+
+fn start_python_kernel(
+    folder: PathBuf,
+    environment: PathBuf,
+) -> Result<NativePythonKernel, String> {
     let mut last_error = None;
     for uv in uv_candidates() {
-        let result = Command::new(&uv)
-            .args([
-                "--no-cache",
-                "run",
-                "python",
-                "-u",
-                "-c",
-                PYTHON_KERNEL_SCRIPT,
-            ])
+        let python = virtualenv_python(&environment);
+        if !python.is_file() {
+            fs::create_dir_all(
+                environment
+                    .parent()
+                    .ok_or("The Python environment path has no parent folder")?,
+            )
+            .map_err(|error| format!("Could not create the Python environment folder: {error}"))?;
+            let created = Command::new(&uv)
+                .args(["venv", "--no-cache"])
+                .arg(&environment)
+                .current_dir(&folder)
+                .output();
+            match created {
+                Ok(output) if output.status.success() => {}
+                Ok(output) => {
+                    last_error = Some(std::io::Error::other(
+                        String::from_utf8_lossy(&output.stderr).into_owned(),
+                    ));
+                    continue;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    last_error = Some(error);
+                    continue;
+                }
+                Err(error) => {
+                    return Err(format!("Could not create the Python environment: {error}"));
+                }
+            }
+        }
+        let result = Command::new(&python)
+            .args(["-u", "-c", PYTHON_KERNEL_SCRIPT])
             .current_dir(&folder)
+            .env("PRESENTA_UV", &uv)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -225,6 +289,7 @@ fn start_python_kernel(folder: PathBuf) -> Result<NativePythonKernel, String> {
                     .ok_or("Could not open the Python kernel output")?;
                 return Ok(NativePythonKernel {
                     folder,
+                    environment,
                     child,
                     stdin,
                     stdout: BufReader::new(stdout),
@@ -284,6 +349,7 @@ impl NativePythonKernel {
 #[tauri::command]
 async fn run_python_cell(
     folder: String,
+    settings_folder: String,
     code: String,
     inputs: Vec<String>,
 ) -> Result<Value, String> {
@@ -291,11 +357,15 @@ async fn run_python_cell(
         let folder = ensure_folder(&folder)?
             .canonicalize()
             .map_err(|error| format!("Could not resolve the presentation folder: {error}"))?;
+        let settings_folder = settings_path(&settings_folder)?;
+        fs::create_dir_all(&settings_folder)
+            .map_err(|error| format!("Could not create the settings folder: {error}"))?;
+        let environment = settings_folder.join("python");
         let mut state = python_kernel_state()
             .lock()
             .map_err(|_| "Python kernel state is unavailable")?;
         let should_restart = match state.as_mut() {
-            Some(kernel) if kernel.folder == folder => kernel
+            Some(kernel) if kernel.folder == folder && kernel.environment == environment => kernel
                 .child
                 .try_wait()
                 .map_err(|error| error.to_string())?
@@ -309,7 +379,7 @@ async fn run_python_cell(
             }
         }
         if state.is_none() {
-            *state = Some(start_python_kernel(folder)?);
+            *state = Some(start_python_kernel(folder, environment)?);
         }
         let result = state
             .as_mut()
@@ -1755,7 +1825,9 @@ mod tests {
     #[test]
     fn native_python_kernel_preserves_state_and_supplies_input() {
         let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let mut kernel = start_python_kernel(folder).expect("uv should start Python");
+        let environment =
+            std::env::temp_dir().join(format!("presenta-python-test-{}", std::process::id()));
+        let mut kernel = start_python_kernel(folder, environment).expect("uv should start Python");
 
         let assigned = kernel
             .execute("answer = 40".into(), vec![])
@@ -1777,6 +1849,17 @@ mod tests {
                 .as_str()
                 .unwrap()
                 .contains("ValueError: expected")
+        );
+
+        let unsupported_magic = kernel
+            .execute("%pip list".into(), vec![])
+            .expect("unsupported pip commands should be reported as cell errors");
+        assert_eq!(unsupported_magic["kind"], "error");
+        assert!(
+            unsupported_magic["data"]
+                .as_str()
+                .unwrap()
+                .contains("Only %pip install")
         );
 
         let _ = kernel.child.kill();

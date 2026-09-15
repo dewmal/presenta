@@ -14,12 +14,37 @@ self.onmessage = async (event: MessageEvent<{ id: string; code: string; inputs?:
   const { id, code, inputs = [] } = event.data;
   try {
     const py = await boot();
+    if (leadingPackageInstallCommands(code).length) await py.loadPackage("micropip");
     py.globals.set("__presenta_code", code);
     py.globals.set("__presenta_inputs_json", JSON.stringify(inputs));
     const result = await py.runPythonAsync(`
-import ast, base64, builtins, contextlib, io, json, sys, traceback
+import ast, base64, builtins, contextlib, io, json, shlex, sys, traceback
 
-def __presenta_run(source, supplied_inputs):
+async def __presenta_prepare(source):
+    code = []
+    installed = []
+    accepting_magics = True
+    for line in source.splitlines(keepends=True):
+        command = line.lstrip()
+        is_pip_magic = command.startswith(("%pip ", "!pip "))
+        if accepting_magics and is_pip_magic:
+            arguments = shlex.split(command[5:].strip())
+            if not arguments or arguments[0] != "install":
+                raise ValueError("Only %pip install (or !pip install) is supported in browser Python.")
+            packages = arguments[1:]
+            if not packages or any(package.startswith("-") for package in packages):
+                raise ValueError("Browser installs require one or more package names and do not support pip options.")
+            import micropip
+            await micropip.install(packages)
+            installed.extend(packages)
+        else:
+            code.append(line)
+            if command.strip() and not command.startswith("#"):
+                accepting_magics = False
+    message = f"Installed in browser environment: {', '.join(installed)}\\n" if installed else ""
+    return "".join(code), message
+
+async def __presenta_run(source, supplied_inputs):
     stdout = io.StringIO()
     input_values = iter(supplied_inputs)
     original_input = builtins.input
@@ -34,6 +59,7 @@ def __presenta_run(source, supplied_inputs):
         return value
 
     try:
+        source, install_output = await __presenta_prepare(source)
         tree = ast.parse(source, mode="exec")
         last = None
         builtins.input = slide_input
@@ -45,7 +71,7 @@ def __presenta_run(source, supplied_inputs):
                 last = eval(compile(ast.Expression(expr.value), "<slide>", "eval"), globals())
             else:
                 exec(compile(tree, "<slide>", "exec"), globals())
-        text = stdout.getvalue()
+        text = install_output + stdout.getvalue()
         if "matplotlib.pyplot" in sys.modules:
             import matplotlib.pyplot as plt
             if plt.get_fignums():
@@ -67,10 +93,24 @@ def __presenta_run(source, supplied_inputs):
     finally:
         builtins.input = original_input
 
-__presenta_run(__presenta_code, json.loads(__presenta_inputs_json))
+await __presenta_run(__presenta_code, json.loads(__presenta_inputs_json))
     `);
     self.postMessage({ id, ...JSON.parse(String(result)) });
   } catch (error) {
     self.postMessage({ id, kind: "error", data: error instanceof Error ? error.stack ?? error.message : String(error) });
   }
 };
+
+function leadingPackageInstallCommands(code: string) {
+  const commands: string[] = [];
+  for (const line of code.split(/\r?\n/)) {
+    const command = line.trimStart();
+    if (!command || command.startsWith("#")) continue;
+    if (/^[%!]pip\s+install(?:\s|$)/.test(command)) {
+      commands.push(command.trim());
+      continue;
+    }
+    break;
+  }
+  return commands;
+}

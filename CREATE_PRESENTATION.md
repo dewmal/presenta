@@ -272,6 +272,20 @@ print(average)
 ```
 ````
 
+Install packages in a Python code block with `%pip install`. The desktop app
+keeps packages in the presentation's Presenta settings folder. In the browser,
+only packages compatible with Pyodide can be installed. `!pip install` is also
+accepted for Jupyter-style presentations. Put install commands at the beginning
+of the cell, before ordinary Python code.
+
+````md
+```python
+%pip install pandas
+import pandas as pd
+pd.DataFrame({"Quarter": ["Q1", "Q2"], "Revenue": [12, 18]})
+```
+````
+
 ## Add a chart
 
 Use an `echarts` fenced block containing a valid JSON option object. Presenta renders the chart responsively and includes it in PDF and video exports.

@@ -130,6 +130,7 @@ my-presentation-project/
     ├── settings.json
     ├── drawings.json
     ├── outputs/
+    ├── python/                 # isolated environment for installed packages
     ├── presentations/
     │   └── decks/
     │       └── quarterly-review.md/
@@ -141,7 +142,9 @@ my-presentation-project/
 
 Editable presentations and their required assets always remain in the project
 tree. Presenta-owned settings, drawings, cached Python outputs, recordings, and
-internal video exports use the selected settings location. The root-level
+internal video exports use the selected settings location. Packages installed
+from code cells with `%pip install` use an isolated Python environment there as
+well. The root-level
 `presentation.md` stores its state directly there; other decks receive isolated
 state under `presentations/<relative-path>/`.
 

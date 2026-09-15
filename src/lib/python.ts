@@ -26,10 +26,10 @@ export class PythonKernel {
     return worker;
   }
 
-  async run(cellId: string, code: string, inputs: string[] = [], folder: string | null = null) {
+  async run(cellId: string, code: string, inputs: string[] = [], folder: string | null = null, settingsFolder: string | null = null) {
     if (isTauri()) {
-      if (!folder) throw new Error("Open a presentation project before running Python");
-      const result = await invoke<Pick<CellOutput, "kind" | "data">>("run_python_cell", { folder, code, inputs });
+      if (!folder || !settingsFolder) throw new Error("Open a presentation project before running Python");
+      const result = await invoke<Pick<CellOutput, "kind" | "data">>("run_python_cell", { folder, settingsFolder, code, inputs });
       return { cellId, ...result, timestamp: Date.now() };
     }
     const id = crypto.randomUUID();
