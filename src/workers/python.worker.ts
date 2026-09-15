@@ -17,8 +17,34 @@ self.onmessage = async (event: MessageEvent<{ id: string; code: string; inputs?:
     if (leadingPackageInstallCommands(code).length) await py.loadPackage("micropip");
     py.globals.set("__presenta_code", code);
     py.globals.set("__presenta_inputs_json", JSON.stringify(inputs));
+    py.globals.set("__presenta_emit", (line: string) => self.postMessage({ id, type: "output", data: line }));
     const result = await py.runPythonAsync(`
 import ast, base64, builtins, contextlib, io, json, shlex, sys, traceback
+
+class __PresentaLineWriter:
+    def __init__(self):
+        self.parts = []
+        self.pending = ""
+
+    def write(self, value):
+        value = str(value)
+        self.parts.append(value)
+        self.pending += value
+        while "\\n" in self.pending:
+            line, self.pending = self.pending.split("\\n", 1)
+            __presenta_emit(line + "\\n")
+        return len(value)
+
+    def flush(self):
+        pass
+
+    def flush_pending(self):
+        if self.pending:
+            __presenta_emit(self.pending)
+            self.pending = ""
+
+    def getvalue(self):
+        return "".join(self.parts)
 
 async def __presenta_prepare(source):
     code = []
@@ -45,7 +71,7 @@ async def __presenta_prepare(source):
     return "".join(code), message
 
 async def __presenta_run(source, supplied_inputs):
-    stdout = io.StringIO()
+    output = __PresentaLineWriter()
     input_values = iter(supplied_inputs)
     original_input = builtins.input
 
@@ -60,10 +86,11 @@ async def __presenta_run(source, supplied_inputs):
 
     try:
         source, install_output = await __presenta_prepare(source)
+        output.write(install_output)
         tree = ast.parse(source, mode="exec")
         last = None
         builtins.input = slide_input
-        with contextlib.redirect_stdout(stdout):
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             if tree.body and isinstance(tree.body[-1], ast.Expr):
                 expr = tree.body.pop()
                 if tree.body:
@@ -71,33 +98,38 @@ async def __presenta_run(source, supplied_inputs):
                 last = eval(compile(ast.Expression(expr.value), "<slide>", "eval"), globals())
             else:
                 exec(compile(tree, "<slide>", "exec"), globals())
-        text = install_output + stdout.getvalue()
         if "matplotlib.pyplot" in sys.modules:
             import matplotlib.pyplot as plt
             if plt.get_fignums():
                 buffer = io.BytesIO()
                 plt.gcf().savefig(buffer, format="png", dpi=144, bbox_inches="tight", facecolor="white")
                 plt.close("all")
+                output.flush_pending()
                 return json.dumps({"kind": "image", "data": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")})
         if last is not None:
             if hasattr(last, "to_html"):
+                output.flush_pending()
                 return json.dumps({"kind": "html", "data": last.to_html()})
             if hasattr(last, "_repr_html_"):
                 html = last._repr_html_()
                 if html:
+                    output.flush_pending()
                     return json.dumps({"kind": "html", "data": html})
-            text += repr(last)
-        return json.dumps({"kind": "text", "data": text or "Done"})
+            output.write(repr(last))
+        output.flush_pending()
+        return json.dumps({"kind": "text", "data": output.getvalue() or "Done"})
     except Exception:
-        return json.dumps({"kind": "error", "data": traceback.format_exc()})
+        output.write(traceback.format_exc())
+        output.flush_pending()
+        return json.dumps({"kind": "error", "data": output.getvalue()})
     finally:
         builtins.input = original_input
 
 await __presenta_run(__presenta_code, json.loads(__presenta_inputs_json))
     `);
-    self.postMessage({ id, ...JSON.parse(String(result)) });
+    self.postMessage({ id, type: "result", ...JSON.parse(String(result)) });
   } catch (error) {
-    self.postMessage({ id, kind: "error", data: error instanceof Error ? error.stack ?? error.message : String(error) });
+    self.postMessage({ id, type: "result", kind: "error", data: error instanceof Error ? error.stack ?? error.message : String(error) });
   }
 };
 

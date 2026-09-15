@@ -5,6 +5,7 @@ import { Check, LoaderCircle, Play, TriangleAlert } from "lucide-react";
 import { isTauri } from "@tauri-apps/api/core";
 import { pythonKernel } from "../lib/python";
 import { useAppStore } from "../store";
+import type { CellOutput } from "../types";
 
 interface Props { id: string; slideId: string; initialCode: string; theme: "light" | "dark" }
 
@@ -89,7 +90,9 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
   const [inputs, setInputs] = useState<string[]>([]);
   const [awaitingInput, setAwaitingInput] = useState(false);
   const [running, setRunning] = useState(false);
+  const [liveOutput, setLiveOutput] = useState<CellOutput | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
   const confirmedInstalls = useRef(new Set<string>());
   const runRevision = useRef(0);
   const output = useAppStore((s) => s.outputs[id]);
@@ -107,7 +110,10 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
     setAwaitingInput(false);
   }, [code]);
   useEffect(() => { if (awaitingInput) firstInputRef.current?.focus(); }, [awaitingInput]);
-  useEffect(() => { runRevision.current += 1; setRunning(false); setAwaitingInput(false); }, [outputRevision, slideResetRevision]);
+  useEffect(() => {
+    if (running && outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
+  }, [liveOutput?.data, running]);
+  useEffect(() => { runRevision.current += 1; setRunning(false); setAwaitingInput(false); setLiveOutput(null); }, [outputRevision, slideResetRevision]);
   const execute = async () => {
     const installCommands = leadingPackageInstallCommands(code);
     const confirmationKey = installCommands.join("\n");
@@ -119,9 +125,12 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
     const outputRevision = useAppStore.getState().outputRevision;
     const slideResetRevision = useAppStore.getState().slideResetRevisions[slideId] ?? 0;
     const currentRun = ++runRevision.current;
-    setAwaitingInput(false); setRunning(true); addEvent({ type: "run-cell", cell: id });
+    setAwaitingInput(false); setRunning(true); setLiveOutput({ cellId: id, kind: "text", data: "", timestamp: Date.now() }); addEvent({ type: "run-cell", cell: id });
     try {
-      const result = await pythonKernel.run(id, code, inputs, folder, settingsFolder);
+      const result = await pythonKernel.run(id, code, inputs, folder, settingsFolder, (line) => {
+        if (runRevision.current !== currentRun) return;
+        setLiveOutput((current) => ({ cellId: id, kind: "text", data: (current?.data ?? "") + line, timestamp: Date.now() }));
+      });
       const current = useAppStore.getState();
       if (current.outputRevision === outputRevision && (current.slideResetRevisions[slideId] ?? 0) === slideResetRevision) setOutput(result);
     }
@@ -129,7 +138,7 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
       const current = useAppStore.getState();
       if (current.outputRevision === outputRevision && (current.slideResetRevisions[slideId] ?? 0) === slideResetRevision) setOutput({ cellId: id, kind: "error", data: String(error), timestamp: Date.now() });
     }
-    finally { if (runRevision.current === currentRun) setRunning(false); }
+    finally { if (runRevision.current === currentRun) { setRunning(false); setLiveOutput(null); } }
   };
   const run = () => {
     if (inputPrompts.length > 0 && !awaitingInput) {
@@ -138,6 +147,7 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
     }
     void execute();
   };
+  const displayOutput = liveOutput ?? output;
 
   return <div className={`code-cell code-theme-${theme}`} data-cell-id={id}>
     <div className="cell-bar"><span title={isTauri() ? "Native Python managed by uv" : "Browser Python powered by Pyodide"}><i /> {isTauri() ? "Python · uv" : "Python · browser"}</span><button onClick={run} disabled={running} title="Run cell (R)">
@@ -158,10 +168,10 @@ export function CodeCell({ id, slideId, initialCode, theme }: Props) {
         />
       </label>)}
     </div>}
-    {output && <div className={`cell-output ${output.kind}`}>
-      <div className="output-label">{output.kind === "error" ? <TriangleAlert /> : <Check />} {output.kind === "error" ? "Error" : "Output"}</div>
-      {output.kind === "html" ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: output.data }} /> :
-        output.kind === "image" ? <img src={output.data} alt="Python output" /> : <pre>{output.data}</pre>}
+    {displayOutput && <div ref={outputRef} className={`cell-output ${displayOutput.kind}`} aria-live="polite">
+      <div className="output-label">{running ? <LoaderCircle className="spin" /> : displayOutput.kind === "error" ? <TriangleAlert /> : <Check />} {running ? "Running" : displayOutput.kind === "error" ? "Error" : "Output"}</div>
+      {displayOutput.kind === "html" ? <div className="rich-output" dangerouslySetInnerHTML={{ __html: displayOutput.data }} /> :
+        displayOutput.kind === "image" ? <img src={displayOutput.data} alt="Python output" /> : <pre>{displayOutput.data}</pre>}
     </div>}
   </div>;
 }

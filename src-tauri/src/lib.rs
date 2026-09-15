@@ -116,7 +116,36 @@ const PYTHON_KERNEL_SCRIPT: &str = r#"
 import ast, base64, builtins, contextlib, io, json, os, shlex, subprocess, sys, traceback
 
 STATE = {"__name__": "__presenta__"}
-PROTOCOL_PRINT = print
+PROTOCOL_STDOUT = sys.stdout
+
+def protocol_message(message):
+    PROTOCOL_STDOUT.write(json.dumps(message, ensure_ascii=False) + "\n")
+    PROTOCOL_STDOUT.flush()
+
+class LineWriter:
+    def __init__(self):
+        self.parts = []
+        self.pending = ""
+
+    def write(self, value):
+        value = str(value)
+        self.parts.append(value)
+        self.pending += value
+        while "\n" in self.pending:
+            line, self.pending = self.pending.split("\n", 1)
+            protocol_message({"type": "output", "data": line + "\n"})
+        return len(value)
+
+    def flush(self):
+        pass
+
+    def flush_pending(self):
+        if self.pending:
+            protocol_message({"type": "output", "data": self.pending})
+            self.pending = ""
+
+    def getvalue(self):
+        return "".join(self.parts)
 
 def prepare_source(source):
     code = []
@@ -146,8 +175,7 @@ def prepare_source(source):
     return "".join(code), "".join(output)
 
 def run_cell(source, supplied_inputs):
-    stdout = io.StringIO()
-    stderr = io.StringIO()
+    output = LineWriter()
     input_values = iter(supplied_inputs)
     original_input = builtins.input
 
@@ -161,10 +189,11 @@ def run_cell(source, supplied_inputs):
 
     try:
         source, install_output = prepare_source(source)
+        output.write(install_output)
         tree = ast.parse(source, mode="exec")
         last = None
         builtins.input = cell_input
-        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             if tree.body and isinstance(tree.body[-1], ast.Expr):
                 expression = tree.body.pop()
                 if tree.body:
@@ -174,25 +203,30 @@ def run_cell(source, supplied_inputs):
             else:
                 exec(compile(tree, "<presenta-cell>", "exec"), STATE, STATE)
 
-        text = install_output + stdout.getvalue() + stderr.getvalue()
         if "matplotlib.pyplot" in sys.modules:
             import matplotlib.pyplot as plt
             if plt.get_fignums():
                 buffer = io.BytesIO()
                 plt.gcf().savefig(buffer, format="png", dpi=144, bbox_inches="tight", facecolor="white")
                 plt.close("all")
+                output.flush_pending()
                 return {"kind": "image", "data": "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")}
         if last is not None:
             if hasattr(last, "to_html"):
+                output.flush_pending()
                 return {"kind": "html", "data": last.to_html()}
             if hasattr(last, "_repr_html_"):
                 html = last._repr_html_()
                 if html:
+                    output.flush_pending()
                     return {"kind": "html", "data": html}
-            text += repr(last)
-        return {"kind": "text", "data": text or "Done"}
+            output.write(repr(last))
+        output.flush_pending()
+        return {"kind": "text", "data": output.getvalue() or "Done"}
     except BaseException:
-        return {"kind": "error", "data": traceback.format_exc()}
+        output.write(traceback.format_exc())
+        output.flush_pending()
+        return {"kind": "error", "data": output.getvalue()}
     finally:
         builtins.input = original_input
 
@@ -202,7 +236,7 @@ for line in sys.stdin:
         response = run_cell(request["code"], request.get("inputs", []))
     except BaseException:
         response = {"kind": "error", "data": traceback.format_exc()}
-    PROTOCOL_PRINT(json.dumps(response, ensure_ascii=False), flush=True)
+    protocol_message({"type": "result", **response})
 "#;
 
 fn native_recording_state() -> &'static Mutex<Option<NativeRecording>> {
@@ -313,7 +347,15 @@ fn start_python_kernel(
 }
 
 impl NativePythonKernel {
-    fn execute(&mut self, code: String, inputs: Vec<String>) -> Result<Value, String> {
+    fn execute<F>(
+        &mut self,
+        code: String,
+        inputs: Vec<String>,
+        mut on_output: F,
+    ) -> Result<Value, String>
+    where
+        F: FnMut(String),
+    {
         let request = serde_json::to_string(&json!({ "code": code, "inputs": inputs }))
             .map_err(|error| error.to_string())?;
         self.stdin
@@ -325,22 +367,39 @@ impl NativePythonKernel {
         self.stdin
             .flush()
             .map_err(|error| format!("Python kernel input failed: {error}"))?;
-        let mut response = String::new();
-        let bytes = self
-            .stdout
-            .read_line(&mut response)
-            .map_err(|error| format!("Python kernel output failed: {error}"))?;
-        if bytes == 0 {
-            return Err("The Python kernel stopped unexpectedly".into());
-        }
-        let value: Value = serde_json::from_str(&response)
-            .map_err(|error| format!("Python returned an invalid response: {error}"))?;
+        let value = loop {
+            let mut response = String::new();
+            let bytes = self
+                .stdout
+                .read_line(&mut response)
+                .map_err(|error| format!("Python kernel output failed: {error}"))?;
+            if bytes == 0 {
+                return Err("The Python kernel stopped unexpectedly".into());
+            }
+            let value: Value = serde_json::from_str(&response)
+                .map_err(|error| format!("Python returned an invalid response: {error}"))?;
+            match value.get("type").and_then(Value::as_str) {
+                Some("output") => {
+                    let line = value
+                        .get("data")
+                        .and_then(Value::as_str)
+                        .ok_or("Python returned an invalid output update")?;
+                    on_output(line.to_owned());
+                }
+                Some("result") => break value,
+                _ => return Err("Python returned an invalid response type".into()),
+            }
+        };
         if !matches!(
             value.get("kind").and_then(Value::as_str),
             Some("text" | "html" | "image" | "error")
         ) || value.get("data").and_then(Value::as_str).is_none()
         {
             return Err("Python returned an invalid cell result".into());
+        }
+        let mut value = value;
+        if let Some(result) = value.as_object_mut() {
+            result.remove("type");
         }
         Ok(value)
     }
@@ -352,6 +411,7 @@ async fn run_python_cell(
     settings_folder: String,
     code: String,
     inputs: Vec<String>,
+    on_output: Channel<String>,
 ) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let folder = ensure_folder(&folder)?
@@ -384,7 +444,9 @@ async fn run_python_cell(
         let result = state
             .as_mut()
             .expect("kernel was initialized")
-            .execute(code, inputs);
+            .execute(code, inputs, |line| {
+                let _ = on_output.send(line);
+            });
         if result.is_err() {
             if let Some(mut kernel) = state.take() {
                 let _ = kernel.child.kill();
@@ -1830,18 +1892,35 @@ mod tests {
         let mut kernel = start_python_kernel(folder, environment).expect("uv should start Python");
 
         let assigned = kernel
-            .execute("answer = 40".into(), vec![])
+            .execute("answer = 40".into(), vec![], |_| {})
             .expect("assignment should run");
         assert_eq!(assigned["kind"], "text");
 
+        let mut printed_lines = Vec::new();
+        let printed = kernel
+            .execute(
+                "print('first')\nprint('second')".into(),
+                vec![],
+                |line| printed_lines.push(line),
+            )
+            .expect("printed lines should run");
+        assert_eq!(printed["data"], "first\nsecond\n");
+        assert_eq!(printed_lines, ["first\n", "second\n"]);
+
+        let mut streamed = Vec::new();
         let result = kernel
-            .execute("answer + int(input('Add: '))".into(), vec!["2".into()])
+            .execute(
+                "answer + int(input('Add: '))".into(),
+                vec!["2".into()],
+                |line| streamed.push(line),
+            )
             .expect("a later cell should see state from an earlier cell");
         assert_eq!(result["kind"], "text");
         assert_eq!(result["data"], "Add: 2\n42");
+        assert_eq!(streamed.concat(), result["data"]);
 
         let error = kernel
-            .execute("raise ValueError('expected')".into(), vec![])
+            .execute("raise ValueError('expected')".into(), vec![], |_| {})
             .expect("Python exceptions are cell results, not protocol failures");
         assert_eq!(error["kind"], "error");
         assert!(
@@ -1852,7 +1931,7 @@ mod tests {
         );
 
         let unsupported_magic = kernel
-            .execute("%pip list".into(), vec![])
+            .execute("%pip list".into(), vec![], |_| {})
             .expect("unsupported pip commands should be reported as cell errors");
         assert_eq!(unsupported_magic["kind"], "error");
         assert!(
