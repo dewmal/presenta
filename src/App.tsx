@@ -17,6 +17,7 @@ import { ProjectDashboard, type RecentProject } from "./components/ProjectDashbo
 import { ProjectSettingsDialog } from "./components/ProjectSettingsDialog";
 import { ThemeToolbar } from "./components/ThemeToolbar";
 import { CHART_ANIMATION_EVENT } from "./components/EChart";
+import { ANIME_CONTROL_EVENT, type AnimeControlAction } from "./components/AnimeTimeline";
 import { visibleMarkdown } from "./lib/slides";
 
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -30,11 +31,16 @@ export default function App() {
   const recorder = useRecorder();
   const currentSlide = store.slides[store.slideIndex];
   const hasVisibleChart = !!currentSlide && /^\s*(?:`{3,}|~{3,})echarts\b/im.test(visibleMarkdown(currentSlide, store.step));
+  const hasVisibleAnime = !!currentSlide && /^\s*(?:`{3,}|~{3,})(?:animejs|anime)\b/im.test(visibleMarkdown(currentSlide, store.step));
   const notify = (message: string, duration = 2600) => { setToast(message); window.setTimeout(() => setToast(""), duration); };
   const animateCharts = () => {
     if (!hasVisibleChart || (store.recording && recorder.paused)) return;
     window.dispatchEvent(new Event(CHART_ANIMATION_EVENT));
     store.addEvent({ type: "chart-animation", slide: store.slideIndex, step: store.step });
+  };
+  const controlAnime = (action: AnimeControlAction) => {
+    window.dispatchEvent(new CustomEvent(ANIME_CONTROL_EVENT, { detail: action }));
+    store.addEvent({ type: `anime-${action}`, slide: store.slideIndex, step: store.step });
   };
   const rememberProject = (project: Omit<RecentProject, "openedAt">) => setRecents((current) => { const next = [{ ...project, openedAt: Date.now() }, ...current.filter((item) => item.folder !== project.folder)].slice(0, 8); localStorage.setItem("presenta:recent-projects", JSON.stringify(next)); return next; });
   const newDeck = async () => {
@@ -142,7 +148,7 @@ export default function App() {
         </div>
       </header>
       <section className="workspace-body"><SlideCanvas cameraStream={recorder.cameraStream} showCamera={(store.recording || presenterView) && recorder.cameraEnabled} cameraLayout={recorder.cameraLayout} moveCamera={recorder.setCameraLayout} notify={notify} />{source && store.mode === "edit" && !presenterView && <SourcePanel close={() => setSource(false)} />}{presenterView && <PresenterPanel elapsed={recorder.elapsed} paused={recorder.paused} recording={store.recording} processing={!!recorder.processingStatus} microphone={recorder.selectedDeviceLabel} inputLevel={recorder.inputLevel} sections={recorder.sections} retakeSectionId={recorder.retakeSectionId} recordingAspectRatio={recorder.recordingAspectRatio} setRecordingAspectRatio={recorder.setRecordingAspectRatio} close={closePresenterView} removeSection={(id) => recorder.removeSection(id).catch((error) => notify(error instanceof Error ? error.message : String(error), 8000))} replaySection={(id) => recorder.replaySection(id).catch((error) => { notify(error instanceof Error ? error.message : String(error), 8000); return null; })} clearSections={() => recorder.clearAllSections().then(() => notify("All recordings deleted")).catch((error) => notify(error instanceof Error ? error.message : String(error), 8000))} cleanPresentation={cleanPresentation} retakeSection={recorder.retakeSection} />}</section>
-      <DrawingToolbar canAnimateChart={hasVisibleChart && (store.mode === "present" || store.recording)} animationDisabled={store.recording && recorder.paused} animateChart={animateCharts} />
+      <DrawingToolbar canAnimateChart={hasVisibleChart && (store.mode === "present" || store.recording)} canAnimateAnime={hasVisibleAnime} animationDisabled={store.recording && recorder.paused} animateChart={animateCharts} controlAnime={controlAnime} />
       <footer className="controlbar">
         <div className="shortcut-hint"><Sparkles /> <span><kbd>Space</kbd> next step</span><span><kbd>D</kbd> draw</span>{hasVisibleChart && (store.mode === "present" || store.recording) ? <span><kbd>A</kbd> animate chart</span> : <span><kbd>R</kbd> run</span>}</div>
         <div className="nav-controls"><button onClick={store.previous} disabled={store.slideIndex === 0 && store.step === 0}><ChevronLeft /></button><strong>{store.slideIndex + 1}</strong><span>/ {store.slides.length}</span><button onClick={store.next} disabled={store.slideIndex === store.slides.length - 1 && store.step === store.slides.at(-1)!.steps.length - 1}><ChevronRight /></button></div>

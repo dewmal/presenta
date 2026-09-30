@@ -140,6 +140,34 @@ Easy to share
 
 Everything before the first step marker appears immediately. Each following section is revealed one at a time.
 
+## Animate explanations with Anime.js
+
+Use an `animejs` fenced block to animate slide elements when the current reveal step appears. The block contains a JSON array. Targets can be normal CSS selectors or `code-line:N`, which targets line N in a visible Python code cell.
+
+```animejs
+[
+  { "target": "code-line:1", "from": { "opacity": 0.35, "y": -12 }, "to": { "opacity": 1, "y": 0 }, "duration": 500 },
+  { "target": "code-line:3", "from": { "backgroundColor": "#d9ff57" }, "to": { "backgroundColor": "transparent" }, "delay": 250, "duration": 700 }
+]
+```
+
+This is useful for walking through an algorithm: put the Python block and the `animejs` block in the same reveal step, then use the normal **Space** navigation to replay the explanation. Anime.js runs in presentation and recording modes; exported PDFs remain static.
+
+For a visual explanation on a separate slide, use a `diagram` block and animate its nodes or edges with `diagram-node:ID` and `diagram-edge:FROM-TO` targets:
+
+```diagram
+{
+  "nodes": [
+    { "id": "root", "label": "7", "x": 50, "y": 18 },
+    { "id": "left", "label": "3", "x": 30, "y": 55 },
+    { "id": "right", "label": "9", "x": 70, "y": 55 }
+  ],
+  "edges": [["root", "left"], ["root", "right"]]
+}
+```
+
+Then target `diagram-node:root` or `diagram-edge:root-left` from an `animejs` block on the same slide.
+
 ## Add presenter notes
 
 Add `???` after the slide content, followed by notes that should not appear on the slide.

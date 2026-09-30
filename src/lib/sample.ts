@@ -213,6 +213,109 @@ Notebook-style state lets a live analysis continue across slides.
 
 ---
 
+# Animate an algorithm walkthrough
+
+Binary search narrows the search space by half after every comparison.
+
+\`\`\`python
+numbers = [1, 3, 5, 7, 9]
+target = 7
+low, high = 0, len(numbers) - 1
+while low <= high:
+    middle = (low + high) // 2
+    if numbers[middle] == target:
+        print("Found", middle)
+        break
+    elif numbers[middle] < target:
+        low = middle + 1
+    else:
+        high = middle - 1
+\`\`\`
+
+<!-- step -->
+
+Start with the search range: \`low = 0\`, \`high = 4\`.
+
+\`\`\`animejs
+[
+  { "target": "code-line:3", "from": { "opacity": 0.3, "x": -18 }, "to": { "opacity": 1, "x": 0 }, "duration": 500 }
+]
+\`\`\`
+
+<!-- step -->
+
+The midpoint is checked first, so only half the values remain.
+
+\`\`\`animejs
+[
+  { "target": "code-line:5", "from": { "backgroundColor": "#d9ff57", "color": "#17181d" }, "to": { "backgroundColor": "transparent", "color": "inherit" }, "duration": 800 }
+]
+\`\`\`
+
+<!-- step -->
+
+Because \`7\` matches, the algorithm stops after one comparison.
+
+\`\`\`animejs
+[
+  { "target": "code-line:7", "from": { "opacity": 0.25, "y": 16 }, "to": { "opacity": 1, "y": 0 }, "duration": 550 },
+  { "target": "code-line:8", "from": { "opacity": 0.25, "y": 16 }, "to": { "opacity": 1, "y": 0 }, "delay": 160, "duration": 550 }
+]
+\`\`\`
+
+???
+Use Space to reveal the range, midpoint, and stopping condition. This demonstrates how Anime.js can make code explanations follow the speaker's narration.
+
+---
+
+# See the search move through a tree
+
+This visual companion keeps the algorithm's mechanics separate from the code.
+
+\`\`\`diagram
+{
+  "nodes": [
+    { "id": "root", "label": "7", "x": 50, "y": 15, "tone": "active" },
+    { "id": "left", "label": "3", "x": 30, "y": 50 },
+    { "id": "right", "label": "9", "x": 70, "y": 50 },
+    { "id": "left-left", "label": "1", "x": 20, "y": 85, "tone": "muted" },
+    { "id": "left-right", "label": "5", "x": 40, "y": 85, "tone": "muted" },
+    { "id": "right-left", "label": "8", "x": 60, "y": 85, "tone": "muted" },
+    { "id": "right-right", "label": "11", "x": 80, "y": 85, "tone": "muted" }
+  ],
+  "edges": [
+    ["root", "left"], ["root", "right"], ["left", "left-left"], ["left", "left-right"],
+    ["right", "right-left"], ["right", "right-right"]
+  ]
+}
+\`\`\`
+
+<!-- step -->
+
+The first comparison starts at the root: **7**.
+
+\`\`\`animejs
+[
+  { "target": "diagram-node:root", "from": { "scale": 0.7, "opacity": 0.35 }, "to": { "scale": 1.35, "opacity": 1 }, "duration": 650 },
+  { "target": "diagram-edge:root-left", "from": { "opacity": 0.1 }, "to": { "opacity": 0.9 }, "delay": 220, "duration": 500 }
+]
+\`\`\`
+
+<!-- step -->
+
+Because the target is **7**, the search finishes immediately. The muted branches are never visited.
+
+\`\`\`animejs
+[
+  { "target": "[data-diagram-node=\"left-left\"], [data-diagram-node=\"left-right\"], [data-diagram-node=\"right-left\"], [data-diagram-node=\"right-right\"]", "from": { "opacity": 0.2 }, "to": { "opacity": 0.45 }, "duration": 600 }
+]
+\`\`\`
+
+???
+This slide demonstrates a visual-only explanation: the code lives on the previous slide, while Anime.js narrates the tree traversal here.
+
+---
+
 # Mathematics and tables stay sharp
 
 <!-- columns: 42 58 -->

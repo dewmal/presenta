@@ -6,6 +6,6 @@ export function SourcePanel({ close }: { close: () => void }) {
   return <aside className="source-panel">
     <div className="source-head"><span><Code2 /> Markdown source</span><button onClick={close}><X /></button></div>
     <textarea value={markdown} onChange={(e) => setMarkdown(e.target.value)} spellCheck={false} aria-label="Markdown source" />
-    <div className="source-help"><code>---</code> slide <span>·</span> <code>&lt;!-- step --&gt;</code> reveal <span>·</span> <code>@[website width=90% height=500](url)</code> web <span>·</span> <code>```echarts</code> chart <span>·</span> <code>???</code> notes</div>
+    <div className="source-help"><code>---</code> slide <span>·</span> <code>&lt;!-- step --&gt;</code> reveal <span>·</span> <code>```animejs</code> animate <span>·</span> <code>```echarts</code> chart <span>·</span> <code>???</code> notes</div>
   </aside>;
 }

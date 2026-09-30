@@ -10,6 +10,8 @@ import { EChart } from "./EChart";
 import { SlideMarkdown } from "./SlideMarkdown";
 import { YouTubeEmbed } from "./YouTubeEmbed";
 import { WebsiteEmbed } from "./WebsiteEmbed";
+import { AnimeTimeline } from "./AnimeTimeline";
+import { Diagram } from "./Diagram";
 import type { CameraLayout, CameraShape } from "../types";
 
 function textFromNode(node: ReactNode): string {
@@ -172,7 +174,7 @@ export function SlideCanvas({ exportMode = false, forcedStep, cameraStream, show
   const components = useMemo(() => ({
     img: ProjectImage,
     pre(props: { children?: ReactNode }) {
-      return isValidElement(props.children) && (props.children.type === CodeCell || props.children.type === EChart || props.children.type === YouTubeEmbed || props.children.type === WebsiteEmbed) ? props.children : <pre>{props.children}</pre>;
+      return isValidElement(props.children) && (props.children.type === CodeCell || props.children.type === EChart || props.children.type === YouTubeEmbed || props.children.type === WebsiteEmbed || props.children.type === AnimeTimeline || props.children.type === Diagram) ? props.children : <pre>{props.children}</pre>;
     },
     code(props: { className?: string; children?: React.ReactNode }) {
       const match = /language-(\w+)/.exec(props.className ?? "");
@@ -197,9 +199,15 @@ export function SlideCanvas({ exportMode = false, forcedStep, cameraStream, show
         const hash = Array.from(source).reduce((value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0, 7).toString(36);
         return <WebsiteEmbed key={`${slide?.id ?? "slide"}-${hash}-${slideResetRevisions[slide?.id ?? ""] ?? 0}`} source={source} />;
       }
+      if (match?.[1] === "animejs" || match?.[1] === "anime") {
+        return <AnimeTimeline source={textFromNode(props.children)} replayKey={`${slide?.id ?? "slide"}-${step}-${slideResetRevisions[slide?.id ?? ""] ?? 0}`} disabled={exportMode} />;
+      }
+      if (match?.[1] === "diagram" || match?.[1] === "tree") {
+        return <Diagram source={textFromNode(props.children)} />;
+      }
       return <code className={props.className}>{props.children}</code>;
     },
-  }), [slide?.id, slideResetRevisions, exportMode, manualChartPlayback, resolvedCodeTheme]);
+  }), [slide?.id, slideResetRevisions, exportMode, manualChartPlayback, resolvedCodeTheme, step]);
 
   useEffect(() => setMenu(null), [slideIndex, mode]);
   useEffect(() => {
