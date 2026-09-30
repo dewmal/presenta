@@ -8,6 +8,8 @@ export interface SlideStyle {
   accentColor?: string;
   codeTheme?: "auto" | "dark" | "light";
   codeWidth?: "100" | "75" | "50";
+  codeHeight?: "100" | "150" | "200" | "250" | "300";
+  codeFontSize?: "8" | "10" | "12" | "14" | "16";
 }
 
 export interface Slide { id: string; raw: string; steps: string[]; notes?: string; background?: string; style: SlideStyle }

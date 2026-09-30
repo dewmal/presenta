@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Palette, RotateCcw } from "lucide-react";
 import { useAppStore } from "../store";
 import { backgroundTone } from "../lib/slides";
+import type { SlideStyle } from "../types";
 
 const fonts = ["Playfair Display", "Manrope", "DM Mono", "Georgia", "Arial", "Times New Roman"];
 
@@ -33,7 +34,7 @@ export function ThemeToolbar({ notify }: { notify: (message: string) => void }) 
     notify("Slide theme applied to all slides");
   };
   const reset = () => {
-    store.setSlideStyle({ titleFont: undefined, bodyFont: undefined, titleColor: undefined, bodyColor: undefined, accentColor: undefined, codeTheme: undefined, codeWidth: undefined });
+    store.setSlideStyle({ titleFont: undefined, bodyFont: undefined, titleColor: undefined, bodyColor: undefined, accentColor: undefined, codeTheme: undefined, codeWidth: undefined, codeHeight: undefined, codeFontSize: undefined });
     store.setSlideBackground(null);
     notify("Current slide theme reset");
   };
@@ -55,6 +56,8 @@ export function ThemeToolbar({ notify }: { notify: (message: string) => void }) 
       <div className="theme-code-grid">
         <label><span>Code theme</span><select value={style.codeTheme ?? "auto"} onChange={(event) => store.setSlideStyle({ codeTheme: event.target.value as "auto" | "dark" | "light" })}><option value="auto">Auto</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
         <label><span>Code width</span><select value={style.codeWidth ?? "100"} onChange={(event) => store.setSlideStyle({ codeWidth: event.target.value as "100" | "75" | "50" })}><option value="100">Full width</option><option value="75">75% width</option><option value="50">50% width</option></select></label>
+        <label><span>Code height</span><select value={style.codeHeight ?? ""} onChange={(event) => store.setSlideStyle({ codeHeight: (event.target.value || undefined) as SlideStyle["codeHeight"] })}><option value="">Auto</option><option value="100">Short · 100 px</option><option value="150">Compact · 150 px</option><option value="200">Medium · 200 px</option><option value="250">Tall · 250 px</option><option value="300">Extra tall · 300 px</option></select></label>
+        <label><span>Code font size</span><select value={style.codeFontSize ?? ""} onChange={(event) => store.setSlideStyle({ codeFontSize: (event.target.value || undefined) as SlideStyle["codeFontSize"] })}><option value="">Responsive</option><option value="8">8 px</option><option value="10">10 px</option><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option></select></label>
       </div>
       <footer><button className="theme-reset" onClick={reset}><RotateCcw /> Reset slide</button><button className="theme-apply" onClick={applyAll}><Check /> Apply to all slides</button></footer>
     </section>}

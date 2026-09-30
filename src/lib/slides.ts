@@ -13,6 +13,8 @@ const styleKeys: Record<string, keyof SlideStyle> = {
   "accent-color": "accentColor",
   "code-theme": "codeTheme",
   "code-width": "codeWidth",
+  "code-height": "codeHeight",
+  "code-font-size": "codeFontSize",
 };
 
 function parseStyle(value?: string): SlideStyle {
@@ -26,6 +28,10 @@ function parseStyle(value?: string): SlideStyle {
       if (setting === "auto" || setting === "dark" || setting === "light") style.codeTheme = setting;
     } else if (key === "codeWidth") {
       if (setting === "100" || setting === "75" || setting === "50") style.codeWidth = setting;
+    } else if (key === "codeHeight") {
+      if (setting === "100" || setting === "150" || setting === "200" || setting === "250" || setting === "300") style.codeHeight = setting;
+    } else if (key === "codeFontSize") {
+      if (setting === "8" || setting === "10" || setting === "12" || setting === "14" || setting === "16") style.codeFontSize = setting;
     } else if (key && setting) {
       (style as Record<string, string | undefined>)[key] = setting;
     }
@@ -116,6 +122,8 @@ export function slideThemeStyle(slide?: Slide) {
     ...(slide.style.bodyColor ? { "--slide-body-color": slide.style.bodyColor } : {}),
     ...(slide.style.accentColor ? { "--slide-accent": slide.style.accentColor } : {}),
     ...(slide.style.codeWidth ? { "--slide-code-width": `${slide.style.codeWidth}%` } : {}),
+    ...(slide.style.codeHeight ? { "--slide-code-height": `${slide.style.codeHeight}px` } : {}),
+    ...(slide.style.codeFontSize ? { "--slide-code-font-size": `${slide.style.codeFontSize}px` } : {}),
   } as CSSProperties;
 }
 
