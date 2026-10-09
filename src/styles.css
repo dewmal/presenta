@@ -68,6 +68,15 @@ button { color:inherit; }
 .katex-display { font-size:clamp(13px,1.45vw,24px); margin:1.7em 0!important; }
 
 .echart-frame { width:100%; height:clamp(230px,31vw,440px); margin:1.1em auto 0; min-height:0; }
+.p5-math-frame { width:min(100%,920px); margin:1.1em auto 0; overflow:hidden; border-radius:8px; background:#08090c; color:#f5f5f5; }
+.p5-math-canvas { width:100%; aspect-ratio:8/5; }
+.p5-math-canvas canvas { display:block; width:100%!important; height:100%!important; }
+.p5-math-angle { display:flex; align-items:center; gap:12px; padding:7px 14px 11px; font:600 10px Manrope; }
+.p5-math-angle output { min-width:38px; color:#ffb000; font:600 10px "DM Mono"; }
+.p5-math-angle input { flex:1; accent-color:#ffb000; }
+.p5-math-error { margin:1.1em auto; padding:14px; border:1px solid #d95569; border-radius:8px; color:#8f2638; background:#ffe7eb; font:11px "DM Mono"; }
+.slide-column .p5-math-frame { width:100%; }
+body.exporting .p5-math-angle { display:none; }
 .echart-canvas { width:100%; height:100%; }
 .echart-frame.invalid { height:auto; min-height:88px; display:grid; place-items:center; border:1px solid #e7a7b2; border-radius:7px; background:#ffe5e9; }
 .echart-error { width:100%; padding:16px 20px; display:flex; flex-direction:column; color:#8e2638; font-family:"DM Mono"; }

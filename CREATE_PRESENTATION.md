@@ -140,34 +140,6 @@ Easy to share
 
 Everything before the first step marker appears immediately. Each following section is revealed one at a time.
 
-## Animate explanations with Anime.js
-
-Use an `animejs` fenced block to animate slide elements when the current reveal step appears. The block contains a JSON array. Targets can be normal CSS selectors or `code-line:N`, which targets line N in a visible Python code cell.
-
-```animejs
-[
-  { "target": "code-line:1", "from": { "opacity": 0.35, "y": -12 }, "to": { "opacity": 1, "y": 0 }, "duration": 500 },
-  { "target": "code-line:3", "from": { "backgroundColor": "#d9ff57" }, "to": { "backgroundColor": "transparent" }, "delay": 250, "duration": 700 }
-]
-```
-
-This is useful for walking through an algorithm: put the Python block and the `animejs` block in the same reveal step, then use the normal **Space** navigation to replay the explanation. Anime.js runs in presentation and recording modes; exported PDFs remain static.
-
-For a visual explanation on a separate slide, use a `diagram` block and animate its nodes or edges with `diagram-node:ID` and `diagram-edge:FROM-TO` targets:
-
-```diagram
-{
-  "nodes": [
-    { "id": "root", "label": "7", "x": 50, "y": 18 },
-    { "id": "left", "label": "3", "x": 30, "y": 55 },
-    { "id": "right", "label": "9", "x": 70, "y": 55 }
-  ],
-  "edges": [["root", "left"], ["root", "right"]]
-}
-```
-
-Then target `diagram-node:root` or `diagram-edge:root-left` from an `animejs` block on the same slide.
-
 ## Add presenter notes
 
 Add `???` after the slide content, followed by notes that should not appear on the slide.
@@ -323,9 +295,6 @@ Use an `echarts` fenced block containing a valid JSON option object. Presenta re
 
 ```echarts
 {
-  "animation": true,
-  "animationDuration": 1000,
-  "animationEasing": "cubicOut",
   "tooltip": { "trigger": "axis" },
   "xAxis": {
     "type": "category",
@@ -344,7 +313,17 @@ Use an `echarts` fenced block containing a valid JSON option object. Presenta re
 
 The option must use JSON syntax, so quote property names and strings and omit JavaScript functions. ECharts supports bar, line, pie, scatter, and other standard series types.
 
-Set `"animation": true` when a chart should animate. Use ECharts options such as `animationDuration`, `animationDelay`, `animationEasing`, `animationDurationUpdate`, and `animationEasingUpdate` to tune the motion. Set `"animation": false` for a static chart. In the editor the chart animates as it appears; while presenting or recording it waits in its final state until you click **Re-animate chart** in the floating toolbar or press **A**. Toolbar shortcuts are shown when you hover over a control, and the chart can be replayed as often as needed. Presenta respects the viewer's reduced-motion preference and disables motion while capturing PDF exports.
+## Explore sine and cosine with p5.js
+
+Use a `p5js` block to add an interactive unit circle and sine/cosine plot. Set the starting angle in degrees; the slider updates the rotating vector and both graph markers. The visualization is rendered with p5.js and is included in slide exports.
+
+````md
+```p5js
+{"angle": 280}
+```
+````
+
+The angle is optional and defaults to 280 degrees. Values are clamped to 0–360.
 
 Use **Slide theme** in the top toolbar to choose a light or dark code theme and set code-block width, height, and font size. These settings apply to the current slide and can be copied to all slides. They are also stored in Markdown as part of the slide style:
 

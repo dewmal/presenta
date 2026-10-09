@@ -178,6 +178,19 @@ Advance once to mount the chart, then again to reveal the note in the right colu
 
 ---
 
+# Sine and cosine connect the circle to the graph
+
+Change the angle to see the rotating point and both function values update together.
+
+\`\`\`p5js
+{"angle": 280}
+\`\`\`
+
+???
+Move the angle slider and point out how the point's horizontal coordinate follows cosine while its vertical coordinate follows sine.
+
+---
+
 <!-- slide-style: code-theme=light; code-width=75 -->
 
 # Python runs inside the deck
@@ -236,35 +249,16 @@ while low <= high:
 
 Start with the search range: \`low = 0\`, \`high = 4\`.
 
-\`\`\`animejs
-[
-  { "target": "code-line:3", "from": { "opacity": 0.3, "x": -18 }, "to": { "opacity": 1, "x": 0 }, "duration": 500 }
-]
-\`\`\`
-
 <!-- step -->
 
 The midpoint is checked first, so only half the values remain.
-
-\`\`\`animejs
-[
-  { "target": "code-line:5", "from": { "backgroundColor": "#d9ff57", "color": "#17181d" }, "to": { "backgroundColor": "transparent", "color": "inherit" }, "duration": 800 }
-]
-\`\`\`
 
 <!-- step -->
 
 Because \`7\` matches, the algorithm stops after one comparison.
 
-\`\`\`animejs
-[
-  { "target": "code-line:7", "from": { "opacity": 0.25, "y": 16 }, "to": { "opacity": 1, "y": 0 }, "duration": 550 },
-  { "target": "code-line:8", "from": { "opacity": 0.25, "y": 16 }, "to": { "opacity": 1, "y": 0 }, "delay": 160, "duration": 550 }
-]
-\`\`\`
-
 ???
-Use Space to reveal the range, midpoint, and stopping condition. This demonstrates how Anime.js can make code explanations follow the speaker's narration.
+Use Space to reveal the search range, midpoint comparison, and result.
 
 ---
 
@@ -294,25 +288,12 @@ This visual companion keeps the algorithm's mechanics separate from the code.
 
 The first comparison starts at the root: **7**.
 
-\`\`\`animejs
-[
-  { "target": "diagram-node:root", "from": { "scale": 0.7, "opacity": 0.35 }, "to": { "scale": 1.35, "opacity": 1 }, "duration": 650 },
-  { "target": "diagram-edge:root-left", "from": { "opacity": 0.1 }, "to": { "opacity": 0.9 }, "delay": 220, "duration": 500 }
-]
-\`\`\`
-
 <!-- step -->
 
 Because the target is **7**, the search finishes immediately. The muted branches are never visited.
 
-\`\`\`animejs
-[
-  { "target": "[data-diagram-node=\"left-left\"], [data-diagram-node=\"left-right\"], [data-diagram-node=\"right-left\"], [data-diagram-node=\"right-right\"]", "from": { "opacity": 0.2 }, "to": { "opacity": 0.45 }, "duration": 600 }
-]
-\`\`\`
-
 ???
-This slide demonstrates a visual-only explanation: the code lives on the previous slide, while Anime.js narrates the tree traversal here.
+This slide shows the binary tree as a visual companion to the search code on the previous slide.
 
 ---
 

@@ -12,6 +12,7 @@ import { YouTubeEmbed } from "./YouTubeEmbed";
 import { WebsiteEmbed } from "./WebsiteEmbed";
 import { AnimeTimeline } from "./AnimeTimeline";
 import { Diagram } from "./Diagram";
+import { P5MathPlot } from "./P5MathPlot";
 import type { CameraLayout, CameraShape } from "../types";
 
 function textFromNode(node: ReactNode): string {
@@ -174,7 +175,7 @@ export function SlideCanvas({ exportMode = false, forcedStep, cameraStream, show
   const components = useMemo(() => ({
     img: ProjectImage,
     pre(props: { children?: ReactNode }) {
-      return isValidElement(props.children) && (props.children.type === CodeCell || props.children.type === EChart || props.children.type === YouTubeEmbed || props.children.type === WebsiteEmbed || props.children.type === AnimeTimeline || props.children.type === Diagram) ? props.children : <pre>{props.children}</pre>;
+      return isValidElement(props.children) && (props.children.type === CodeCell || props.children.type === EChart || props.children.type === P5MathPlot || props.children.type === YouTubeEmbed || props.children.type === WebsiteEmbed || props.children.type === AnimeTimeline || props.children.type === Diagram) ? props.children : <pre>{props.children}</pre>;
     },
     code(props: { className?: string; children?: React.ReactNode }) {
       const match = /language-(\w+)/.exec(props.className ?? "");
@@ -188,6 +189,9 @@ export function SlideCanvas({ exportMode = false, forcedStep, cameraStream, show
       if (match?.[1] === "echarts") {
         const slideId = slide?.id ?? "slide";
         return <EChart source={textFromNode(props.children)} theme={resolvedCodeTheme} replayKey={`${slideId}-${slideResetRevisions[slideId] ?? 0}`} manualPlayback={manualChartPlayback} />;
+      }
+      if (match?.[1] === "p5js") {
+        return <P5MathPlot source={textFromNode(props.children)} />;
       }
       if (match?.[1] === "youtube") {
         const source = textFromNode(props.children).trim();
