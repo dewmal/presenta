@@ -266,12 +266,15 @@ Use Space to reveal the search range, midpoint comparison, and result.
 
 This visual companion keeps the algorithm's mechanics separate from the code.
 
+Set an optional diagram background and per-node color and textColor to match your slide theme. Node shapes widen to fit their labels.
+
 \`\`\`diagram
 {
+  "background": "#17181d",
   "nodes": [
-    { "id": "root", "label": "7", "x": 50, "y": 15, "tone": "active" },
-    { "id": "left", "label": "3", "x": 30, "y": 50 },
-    { "id": "right", "label": "9", "x": 70, "y": 50 },
+    { "id": "root", "label": "7", "x": 50, "y": 15, "tone": "active", "color": "#d9ff57", "textColor": "#17181d" },
+    { "id": "left", "label": "3", "x": 30, "y": 50, "color": "#ff4d67", "textColor": "#17181d" },
+    { "id": "right", "label": "9", "x": 70, "y": 50, "color": "#ff4d67", "textColor": "#17181d" },
     { "id": "left-left", "label": "1", "x": 20, "y": 85, "tone": "muted" },
     { "id": "left-right", "label": "5", "x": 40, "y": 85, "tone": "muted" },
     { "id": "right-left", "label": "8", "x": 60, "y": 85, "tone": "muted" },

@@ -303,6 +303,38 @@ fn start_python_kernel(
                 }
             }
         }
+        // NumPy is the baseline numerical package used by presentation cells.
+        // Repair an existing environment too, so users upgrading Presenta receive it.
+        let has_numpy = Command::new(&python)
+            .args(["-c", "import numpy"])
+            .current_dir(&folder)
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+        if !has_numpy {
+            let installed = Command::new(&uv)
+                .args(["pip", "install", "--python"])
+                .arg(&python)
+                .arg("numpy")
+                .current_dir(&folder)
+                .output();
+            match installed {
+                Ok(output) if output.status.success() => {}
+                Ok(output) => {
+                    last_error = Some(std::io::Error::other(
+                        String::from_utf8_lossy(&output.stderr).into_owned(),
+                    ));
+                    continue;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    last_error = Some(error);
+                    continue;
+                }
+                Err(error) => {
+                    return Err(format!("Could not install the default Python packages: {error}"));
+                }
+            }
+        }
         let result = Command::new(&python)
             .args(["-u", "-c", PYTHON_KERNEL_SCRIPT])
             .current_dir(&folder)
@@ -420,7 +452,9 @@ async fn run_python_cell(
         let settings_folder = settings_path(&settings_folder)?;
         fs::create_dir_all(&settings_folder)
             .map_err(|error| format!("Could not create the settings folder: {error}"))?;
-        let environment = settings_folder.join("python");
+        // Keep one reusable Python environment in the central ~/.presenta folder;
+        // execute cells from the project folder so relative file access still works.
+        let environment = home_settings_folder()?.join("python");
         let mut state = python_kernel_state()
             .lock()
             .map_err(|_| "Python kernel state is unavailable")?;

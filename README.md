@@ -19,8 +19,8 @@ slides, record your delivery, and export the result.
 
 - **Markdown-native decks** with speaker notes, incremental reveals, columns,
   mathematics, tables, syntax highlighting, and custom slide backgrounds.
-- **Persistent Python cells** powered by the opened project's `uv` environment in
-  the desktop app, with a Pyodide fallback in the browser.
+- **Persistent Python cells** powered by a shared `~/.presenta/python` environment
+  in the desktop app, with a Pyodide fallback in the browser.
 - **Animated ECharts** configured directly from fenced JSON blocks.
 - **Interactive p5.js math visuals** for exploring a unit circle with sine and cosine.
 - **Controllable YouTube embeds** with seek, mute, fill-slide, and fullscreen

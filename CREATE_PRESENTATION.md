@@ -167,6 +167,21 @@ Place images in the presentation's `assets` folder and reference them with a rel
 
 Always include a short description inside the square brackets. Use clear filenames without spaces when possible.
 
+## Add a diagram
+
+Use a `diagram` code fence with JSON to draw labeled nodes and connections. Node positions use a 0–100 coordinate range. Labels automatically widen their node shapes. Set `background` for the diagram area, and set `color` and `textColor` on individual nodes to customize their fill and label colors. The optional `tone` can be `active` or `muted`.
+
+```diagram
+{
+  "background": "#17181d",
+  "nodes": [
+    { "id": "start", "label": "Start", "x": 25, "y": 50, "color": "#ff4d67", "textColor": "#17181d" },
+    { "id": "finish", "label": "Finish", "x": 75, "y": 50, "tone": "active", "color": "#d9ff57", "textColor": "#17181d" }
+  ],
+  "edges": [["start", "finish"]]
+}
+```
+
 ## Add links
 
 Use Markdown link syntax:
@@ -273,8 +288,10 @@ print(average)
 ````
 
 Install packages in a Python code block with `%pip install`. The desktop app
-keeps packages in the presentation's Presenta settings folder. In the browser,
-only packages compatible with Pyodide can be installed. `!pip install` is also
+keeps Python packages in the shared `~/.presenta/python` environment and installs
+NumPy there when it initializes the environment. Cells still run from the
+presentation project folder, so relative file paths refer to that project. In
+the browser, only packages compatible with Pyodide can be installed. `!pip install` is also
 accepted for Jupyter-style presentations. Put install commands at the beginning
 of the cell, before ordinary Python code.
 
