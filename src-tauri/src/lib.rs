@@ -820,8 +820,32 @@ fn save_presentation(
     let settings = settings_path(&settings_folder)?;
     let name = validate_presentation_file(&presentation_file)?;
     fs::write(root.join(name), markdown).map_err(|e| e.to_string())?;
-    ensure_app_layout(&settings, &root)?;
-    let app = presentation_state_folder(&settings, name);
+    save_presentation_state(&root, &settings, name, drawings, outputs)
+}
+
+#[tauri::command]
+fn save_presentation_state_command(
+    folder: String,
+    settings_folder: String,
+    presentation_file: String,
+    drawings: Value,
+    outputs: Value,
+) -> Result<(), String> {
+    let root = ensure_folder(&folder)?;
+    let settings = settings_path(&settings_folder)?;
+    let name = validate_presentation_file(&presentation_file)?;
+    save_presentation_state(&root, &settings, name, drawings, outputs)
+}
+
+fn save_presentation_state(
+    root: &Path,
+    settings: &Path,
+    name: &str,
+    drawings: Value,
+    outputs: Value,
+) -> Result<(), String> {
+    ensure_app_layout(settings, root)?;
+    let app = presentation_state_folder(settings, name);
     fs::create_dir_all(&app).map_err(|e| e.to_string())?;
     let json = serde_json::to_string_pretty(&drawings).map_err(|e| e.to_string())?;
     fs::write(app.join("drawings.json"), json).map_err(|e| e.to_string())?;
@@ -1857,6 +1881,7 @@ pub fn run() {
             load_outputs,
             create_presentation,
             save_presentation,
+            save_presentation_state_command,
             save_session,
             run_python_cell,
             native_recording_available,

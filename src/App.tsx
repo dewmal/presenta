@@ -7,7 +7,7 @@ import { SourcePanel } from "./components/SourcePanel";
 import { ExportDialog } from "./components/ExportDialog";
 import { HelpDialog } from "./components/HelpDialog";
 import { useAppStore } from "./store";
-import { choosePresentationProject, chooseSettingsRoot, createPresentation, openMicrophoneSettings, openPresentation, resolveSettingsFolder, savePresentation, setNativeEmbedsVisible, settingsCacheFolder, settingsHomeFolder, type SettingsLocation } from "./lib/native";
+import { choosePresentationProject, chooseSettingsRoot, createPresentation, openMicrophoneSettings, openPresentation, resolveSettingsFolder, savePresentation, savePresentationState, setNativeEmbedsVisible, settingsCacheFolder, settingsHomeFolder, type SettingsLocation } from "./lib/native";
 import { PresentationPicker } from "./components/PresentationPicker";
 import { useRecorder } from "./hooks/useRecorder";
 import { NEW_PRESENTATION_MARKDOWN, SAMPLE_MARKDOWN } from "./lib/sample";
@@ -48,13 +48,13 @@ export default function App() {
       const result = await createPresentation(NEW_PRESENTATION_MARKDOWN, settingsLocation, store.folder, store.settingsFolder);
       if (!result) return;
       const current = useAppStore.getState();
-      if (current.folder && current.presentationFile) await savePresentation(current.folder, current.settingsFolder, current.presentationFile, current.markdown, current.drawings, current.outputs);
+      if (current.folder && current.presentationFile) await savePresentationState(current.folder, current.settingsFolder, current.presentationFile, current.drawings, current.outputs);
       store.loadDeck(result.folder, result.settingsFolder, result.presentationFile, result.presentations, result.markdown); useAppStore.setState({ drawings: result.drawings, outputs: result.outputs }); rememberProject(result); setView("editor"); notify("New presentation created");
     } catch (error) { notify(error instanceof Error ? error.message : String(error)); }
   };
   const loadDeck = async (folder: string, settingsFolder: string, presentationFile: string, presentations: string[]) => {
     const current = useAppStore.getState();
-    if (current.folder && current.presentationFile) await savePresentation(current.folder, current.settingsFolder, current.presentationFile, current.markdown, current.drawings, current.outputs);
+    if (current.folder && current.presentationFile) await savePresentationState(current.folder, current.settingsFolder, current.presentationFile, current.drawings, current.outputs);
     const result = await openPresentation(folder, settingsFolder, presentationFile, presentations);
     store.loadDeck(result.folder, result.settingsFolder, result.presentationFile, result.presentations, result.markdown); useAppStore.setState({ drawings: result.drawings, outputs: result.outputs }); rememberProject(result); setPicker(null); setView("editor"); notify(`${presentationFile} loaded`);
   };
@@ -123,9 +123,9 @@ export default function App() {
 
   useEffect(() => {
     if (!store.folder) return;
-    const timeout = window.setTimeout(() => savePresentation(store.folder, store.settingsFolder, store.presentationFile, store.markdown, store.drawings, store.outputs).catch(() => undefined), 800);
+    const timeout = window.setTimeout(() => savePresentationState(store.folder, store.settingsFolder, store.presentationFile, store.drawings, store.outputs).catch(() => undefined), 800);
     return () => window.clearTimeout(timeout);
-  }, [store.folder, store.settingsFolder, store.presentationFile, store.markdown, store.drawings, store.outputs]);
+  }, [store.folder, store.settingsFolder, store.presentationFile, store.drawings, store.outputs]);
 
   if (view === "dashboard") return <>
     <ProjectDashboard recents={recents} theme={store.theme} openProject={openDeck} newPresentation={newDeck} openRecent={openRecentProject} openSample={() => { store.loadDeck(null, null, null, [], SAMPLE_MARKDOWN); setView("editor"); }} removeRecent={(folder) => setRecents((current) => { const next = current.filter((project) => project.folder !== folder); localStorage.setItem("presenta:recent-projects", JSON.stringify(next)); return next; })} toggleTheme={() => store.setTheme(store.theme === "light" ? "dark" : "light")} openSettings={() => setSettingsOpen(true)} />
@@ -138,7 +138,7 @@ export default function App() {
     {store.sidebarOpen && store.mode === "edit" && !presenterView && <Sidebar choosePresentation={() => store.folder && store.settingsFolder && store.presentationFiles.length > 1 && setPicker({ folder: store.folder, settingsFolder: store.settingsFolder, presentations: store.presentationFiles })} />}
     <main className="workspace">
       <header className="topbar">
-        <div className="top-left"><button onClick={() => setView("dashboard")} title="Back to projects" aria-label="Back to projects"><LayoutDashboard /></button>{!store.sidebarOpen && <button onClick={() => store.setSidebar(true)} title="Show slides"><Menu /></button>}<button className="deck-name" onClick={() => store.folder && store.settingsFolder && store.presentationFiles.length > 1 && setPicker({ folder: store.folder, settingsFolder: store.settingsFolder, presentations: store.presentationFiles })}>{store.presentationFile?.split(/[\\/]/).at(-1)?.replace(/\.md$/i, "") ?? "Untitled presentation"}{store.presentationFiles.length > 1 && <ChevronDown />}</button><span className="save-state"><i /> Saved</span></div>
+        <div className="top-left"><button onClick={() => setView("dashboard")} title="Back to projects" aria-label="Back to projects"><LayoutDashboard /></button>{!store.sidebarOpen && <button onClick={() => store.setSidebar(true)} title="Show slides"><Menu /></button>}<button className="deck-name" onClick={() => store.folder && store.settingsFolder && store.presentationFiles.length > 1 && setPicker({ folder: store.folder, settingsFolder: store.settingsFolder, presentations: store.presentationFiles })}>{store.presentationFile?.split(/[\\/]/).at(-1)?.replace(/\.md$/i, "") ?? "Untitled presentation"}{store.presentationFiles.length > 1 && <ChevronDown />}</button><span className="save-state"><i /> Save manually</span></div>
         <div className="top-actions">
           <button onClick={newDeck}><FilePlus2 /> New</button><button onClick={openDeck}><FolderOpen /> Open</button><button onClick={saveDeck}><Save /> Save</button><button onClick={() => setSource(!source)} className={source ? "active" : ""}><Code2 /> Source</button>
           <button onClick={() => store.setTheme(store.theme === "light" ? "dark" : "light")} title={`Switch to ${store.theme === "light" ? "dark" : "light"} theme`} aria-label={`Switch to ${store.theme === "light" ? "dark" : "light"} theme`}>{store.theme === "light" ? <Moon /> : <Sun />} Theme</button>

@@ -14,6 +14,6 @@ export function Sidebar({ choosePresentation }: { choosePresentation: () => void
         <span className={`thumb-canvas ${backgroundTone(slide.background)}`} style={slideThemeStyle(slide)}><i /><strong>{slideTitle(slide)}</strong><small>{slide.steps.length > 1 ? `${slide.steps.length} reveal steps` : "Static slide"}</small></span>
       </button>)}
     </div>
-    <button className="sidebar-foot" onClick={choosePresentation} disabled={presentationFiles.length < 2} title={presentationFiles.length > 1 ? "Switch presentation" : undefined}><FileText /><span><b>{presentationFile ?? "Unsaved presentation"}</b><small>{slides.length} slides · autosaved</small></span>{presentationFiles.length > 1 && <ChevronDown className="switch-icon" />}</button>
+    <button className="sidebar-foot" onClick={choosePresentation} disabled={presentationFiles.length < 2} title={presentationFiles.length > 1 ? "Switch presentation" : undefined}><FileText /><span><b>{presentationFile ?? "Unsaved presentation"}</b><small>{slides.length} slides · save manually</small></span>{presentationFiles.length > 1 && <ChevronDown className="switch-icon" />}</button>
   </aside>;
 }

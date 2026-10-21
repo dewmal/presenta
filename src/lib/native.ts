@@ -84,6 +84,13 @@ export async function savePresentation(folder: string | null, settingsFolder: st
   await invoke("save_presentation", { folder, settingsFolder, presentationFile, markdown, drawings, outputs });
 }
 
+export async function savePresentationState(folder: string | null, settingsFolder: string | null, presentationFile: string | null, drawings: Drawing[], outputs: Record<string, CellOutput>) {
+  if (!folder || !settingsFolder || !presentationFile || !isTauri()) {
+    localStorage.setItem("presenta:draft-state", JSON.stringify({ drawings, outputs })); return;
+  }
+  await invoke("save_presentation_state_command", { folder, settingsFolder, presentationFile, drawings, outputs });
+}
+
 export async function saveSession(folder: string | null, settingsFolder: string | null, presentationFile: string | null, session: SessionData, audio?: Blob, video?: Blob) {
   if (!folder || !settingsFolder || !isTauri()) {
     localStorage.setItem(`presenta:session:${session.id}`, JSON.stringify(session)); return null;
