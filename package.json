@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "debug:macos": "sh scripts/run-macos-debug.sh",
+    "install:macos": "sh scripts/install-macos-release.sh",
     "preview": "vite preview",
     "tauri": "tauri",
     "check": "tsc -b"

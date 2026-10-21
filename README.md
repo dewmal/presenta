@@ -63,6 +63,16 @@ Open a project folder containing one or more Markdown presentation files. Decks
 may live at the project root or in subfolders and share the root-level `assets/`
 directory.
 
+### Install or update the macOS release
+
+On macOS, build the production app and install it in `/Applications` with:
+
+```bash
+npm run install:macos
+```
+
+Run this command again after updating the project to install a newer release.
+
 ## Authoring a deck
 
 Use `---` between slides and add Presenta's optional directives where needed:
